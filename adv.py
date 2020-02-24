@@ -108,9 +108,9 @@ while len(visited) < len(room_graph):
                         q.enqueue(path_copy)
         retrace_steps = backtrack(graph, player)
 
-        for d in retrace_steps:
-            player.travel(d)
-            traversal_path.append(d)
+        for steps in retrace_steps:
+            player.travel(steps)
+            traversal_path.append(steps)
 
 
 
