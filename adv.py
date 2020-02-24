@@ -14,8 +14,8 @@ world = World()
 # map_file = "maps/test_line.txt"
 # map_file = "maps/test_cross.txt"
 # map_file = "maps/test_loop.txt"
-map_file = "maps/test_loop_fork.txt"
-# map_file = "maps/main_maze.txt"
+# map_file = "maps/test_loop_fork.txt"
+map_file = "maps/main_maze.txt"
 
 # Loads the map into a dictionary
 room_graph=literal_eval(open(map_file, "r").read())
@@ -25,232 +25,174 @@ world.load_graph(room_graph)
 world.print_rooms()
 
 player = Player(world.starting_room)
-
-def pathfinder(room_graph):
-
-    # To solve this path, you'll want to construct your own traversal graph. You start in room `0`, which contains exits `['n', 's', 'w', 'e']`. Your starting graph should look something like this:
-
-    # ```
-    # {
-    #   0: {'n': '?', 's': '?', 'w': '?', 'e': '?'}
-    # }
-    # ```
-
-    #sanity check
-    # print(player.current_room.id)
-    # print(player.current_room.get_exits())
-    #['n', 's', 'w', 'e']
-
-    starting_graph={}
-    starting_graph[0] = dict()
-    # print(starting_graph)
-    #sanity check ok. graph exists and there's stuff in it.
-
-    mysteryrooms = player.current_room.get_exits()
-    # print(f"mysteryrooms sanity check: {mysteryrooms}")
-
-    #add rooms to starting_graph[0] as '?'
-    for room in mysteryrooms:
-        starting_graph[0][room] = '?'
-    # print(f"starting_graph loaded{starting_graph}")
-    #sanity check ==> starting_graph loaded{0: {'n': '?', 's': '?', 'w': '?', 'e': '?'}}
-
-    #sanity check length of room list in txt file
-    print(f"room_graph length: {len(room_graph)}" )
+#sanity check length of room list in txt file
+print(f"room_graph length: {len(room_graph)}" )
 
 
+# Fill this out with directions to walk
+# traversal_path = ['n', 'n']
+traversal_path = []
 
 
-    def randomizer(room_id, doors):
-        if len(doors) > 1:
-            rando = random. randint(1,len(doors)-1)
-            print(f"from randomizer {room_id} {doors[rando]}")
-            return doors[rando]
-        else:
-            return doors[0]
+graph = {}
+visited = set()
+visitcount = 0
+
+def backup(last_dir):
+    backtrack = {'n':'s', 's':'n', 'e':'w', 'w':'e'}
+    return backtrack[last_dir]
+
+def randomizer(room_id, doors):
+    if len(doors) > 1:
+        rando = random. randint(1,len(doors)-1)
+        print(f"from randomizer {room_id} {doors[rando]}")
+        return doors[rando]
+    else:
+        return doors[0]
+
+src = None
+prev_room = None
+
+while len(visited) < len(room_graph):
+    print()
+    print(f"round {visitcount} ", end='==============')
+    print()
+    current_room = player.current_room.id
+    # print(current_room)
+    visited.add(current_room)
+
+    if current_room not in graph:
+        graph[current_room] = {}
+
+        for exit in player.current_room.get_exits():
+            graph[current_room][exit] = '?'
     
-    def backup(last_dir):
-        backtrack = {'n':'s', 's':'n', 'e':'w', 'w':'e'}
-        return backtrack[last_dir]
+    availrooms = [key for key,val in graph[current_room].items() if val == '?']
 
-
-   
-
-
-    graph = starting_graph
-    visited = set()
-    path = []
-    visitcount = 1
-    last_dir = None
-    prev_room = None
-    
-    visited.add(0)
-
-    while len(visited)< len(room_graph):
-        curr_room = player.current_room.id
-        visited.add(curr_room)
-        
-
-        print()
-        print(f"round {visitcount} ", end='==============')
-        print()
+    if len(availrooms) > 0:
+        visitcount += 1
+        print(f"where am I?: {current_room}")
         print(f"and where have i been? : {visited}") 
         print(f"what is already in graph? : {graph}")
-        visitcount += 1
+        direction = randomizer(player.current_room.id, availrooms)
+        player.travel(direction)
+        graph[current_room][direction] = player.current_room.id
+        go_back = backup(direction)
+        old_room = current_room
+        traversal_path.append(direction)
+    
+    else:
+        def backtrack(graph,player):
+            q = Queue()
+            exploredrooms = set()
 
-        if curr_room not in graph:
-            graph[curr_room] = {}
+            q.enqueue([(player.current_room.id, None)])
 
-            for doors in player.current_room.get_exits():
-                graph[curr_room][doors] = '?'
+            while q.size() > 0 :
+                curr_path = q.dequeue()
+                lastroom = curr_path[-1][0]
 
-        availdoors = []
-        for k,v in graph[player.current_room.id].items():
-            if v == '?':
-                availdoors.append(k)
-        print(f"what doors are still avail? : {availdoors}")
+                if '?' in graph[lastroom].values():
+                    path = []
+                    for p in curr_path:
+                        path.append(p[1])
+                    print(f"p {p}")
+                    return path
 
-        if len(availdoors) > 0:
-             #choose a random door from the available ? doors. return 'n' 's' 'e' or 'w'. 
-             # if there is only one door left it automatically takes it to avoid collisions.
-            direction = randomizer(curr_room, availdoors)
-            print(f"which way do we go? : {direction}")
-            prev_room = curr_room
-            player.travel(direction)
-            graph[curr_room][direction] = player.current_room.id
-            last_dir = direction
-            go_back = backup(last_dir)
-            path.append(direction)
-        
-            print()
-            print(f"sanity check, where am now? : {player.current_room.id}") 
-            print(f"how do i get back to {prev_room} : {go_back} ")
-        
-        else:
-            def backtrack_rooms(graph, player):
-                
-                q=Queue()
-                finished_rooms = set()
+                if lastroom not in exploredrooms:
+                    exploredrooms.add(lastroom)
 
-                q.enqueue([player.current_room.id])
-                print(f"what's in q right now?: {q}")
+                    for k,v in graph[lastroom].items():
+                        path_copy = list(curr_path)
+                        path_copy.append((v,k))
+                        q.enqueue(path_copy)
+        retrace_steps = backtrack(graph, player)
 
-                while q.size() > 0:
-                    curr_path = q.dequeue()
-                    last_room = curr_path[-1][0]
-
-                    if '?' in graph[last_room].values():
-                        return [i[1] for i in curr_path[:1]]
-
-                    if last_room not in visited:
-                        finished_rooms.add(last_room)
-                        for key, val in graph[last_room].items():
-                            path_copy = list(curr_path)
-                            path_copy.append((v,k))
-                            q.enqueue(path_copy)
-
-            back_list = backtrack_rooms(graph, player)
-
-            for emptyrooms in back_list:
-                player.travel(emptyrooms)
-                path.append(emptyrooms)
-
-    return path
-   
+        for d in retrace_steps:
+            player.travel(d)
+            traversal_path.append(d)
 
 
 
+# previous failed attempts
 
-        
-        # for k,v in graph[player.current_room.id].items():
-        #     if v == '?':
-        #         availdoors.append(k)
-        # print(f"availdoors in room {player.current_room.id} {availdoors}")
-
-        # #check if all doors have already been used
-        # if len(availdoors) > 0:
-        #     #choose a random door from the available ? doors
-        #     direction = randomizer(player.current_room.id, availdoors)
-        #     #log the last room and hallway you were in incase backtracking is needed.
-        #     last_dir = direction
-        #     prev_room = player.current_room.id
-        #     print(f"prevroom: {prev_room} ")
-        #     #add direction moved to path for later
-        #     path.append(direction)
-        #     print(f"path: {path}")
-
-        #     #go to the next room
-        #     player.travel(direction)
-        #     visitcount += 1
-        #     visited.add(player.current_room.id)
-
-        #     #sanity check. where am i now?
-        #     print(f"sanity check. where am i now? {player.current_room.id}")
-
-        #     add_qs = {}
-        #     if player.current_room.id not in visited:
-        #     # add new room to graph with all door as ? except for the door we just came through, which is labeled for the previous room
-        #         for door in player.current_room.get_exits():
-        #         #backup is stored at the top
-        #             if door == backup(last_dir):
-        #             add_qs[door] = prev_room
-        #             else:
-        #                 add_qs[door] = '?'
-
-        #         graph[player.current_room.id] = add_qs
-        #         graph[prev_room][last_dir] = player.current_room.id
-        #         print(f"updated graph: {graph}")
+# last_dir = None
+# prev_room = None
 
 
-        # else:
-        #     print("dead end found")
-        #     return path
-    # print(f"visited {visited}")
-    # return path
+# #sanity check
+# # print(player.current_room.id)
+# # print(player.current_room.get_exits())
+# #['n', 's', 'w', 'e']
+
+# def randomizer(room_id, doors):
+#     if len(doors) > 1:
+#         rando = random. randint(1,len(doors)-1)
+#         print(f"from randomizer {room_id} {doors[rando]}")
+#         return doors[rando]
+#     else:
+#         return doors[0]
+
+# def backup(last_dir):
+#     backtrack = {'n':'s', 's':'n', 'e':'w', 'w':'e'}
+#     return backtrack[last_dir]
 
 
+
+# while len(visited)< len(room_graph):
+#     curr_room = player.current_room.id
+#     visited.add(curr_room)
     
 
+#     print()
+#     print(f"round {visitcount} ", end='==============')
+#     print()
+#     print(f"where am I?: {curr_room}")
+#     print(f"and where have i been? : {visited}") 
+#     print(f"what is already in graph? : {graph}")
+#     visitcount += 1
+
+#     if curr_room not in graph:
+#         graph[curr_room] = {}
+#         for doors in player.current_room.get_exits():
+#             graph[curr_room][doors] = '?'
+
+#     availdoors = []
+#     for k,v in graph[player.current_room.id].items():
+#         if v == '?':
+#             availdoors.append(k)
+#     print(f"what doors are still avail? : {availdoors}")
     
 
+#     if len(availdoors) > 0:
+#         print(player.current_room.id)
+#         #return a random door from the availdoors, or returns the only avail door left if there is only one to avoid collisions.   
+#         direction = randomizer(curr_room, availdoors)
+#         print(f"which way do we go? : {direction}")
+#         #move to the next room
+#         prev_room = curr_room
+#         last_dir = direction
+#         player.travel(direction)
+#         print(curr_room)
+#         print(prev_room)
+#         graph[curr_room][direction] = player.current_room.id
+#         if graph[prev_room][backup(last_dir)] in graph:
+#             graph[prev_room][backup(last_dir)] = prev_room
+#         prev_room = curr_room
         
+#         go_back = backup(last_dir)
+#         traversal_path.append(direction)
     
+#         print()
+#         print(f"sanity check, where am now? : {player.current_room.id}") 
+#         print(f"how do i get back to {prev_room} : {go_back} ")
+    
+#     else:
+#         break
+        
+                    
 
-
-
-
-
-    # Fill this out with directions to walk
-    # traversal_path = ['n', 'n']
-
-traversal_path = pathfinder(room_graph)
-print(f"traveral_path {traversal_path}")
-
-
-
-# If all paths have been explored, you're done!
-
-
-# Start by writing an algorithm that picks a random unexplored direction from the player's current room, travels and logs that direction, then loops. This should cause your player to walk a depth-first traversal. 
-
-
-
-# When you reach a dead-end (i.e. a room with no unexplored paths), walk back to the nearest room that does contain an unexplored path.
-# You can find the path to the shortest unexplored room by using a breadth-first search for a room with a `'?'` for an exit.
-
-# 1. Instead of searching for a target vertex, you are searching for an exit with a `'?'` as the value. If an exit has been explored, you can put it in your BFS queue like normal.
-
-# 2. BFS will return the path as a list of room IDs. You will need to convert this to a list of n/s/e/w directions before you can add it to your traversal path.
-
-
-
-
-
-
-
-
-
-
+# print(f"traversal_path {traversal_path}")
 
 
 
